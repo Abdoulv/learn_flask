@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Taxi hiring app</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
+    <link rel="stylesheet" href="map.css">
+    <style>
+        #map {
+            height: 1000px;
+            width: 100%;
+        }
+        .notification {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid black;
+            z-index: 10;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .notification.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container fields">
+        <span>Location de depart</span><input type="text" id="origin" name="origin"><br><br>
+        <span>Location de destination</span><input type="text" id="destination" name="destination"><br><br>
+        <span>Nombre de places</span><input type="number" id="numOfPlaces" name="numOfPlaces" min="1" value="1"><br><br>
+        <input type="number" id="latitude" name="latitude" value="1" hidden>
+        <input type="number" id="longitude" name="longitude" value="1" hidden>
+        <button onclick="findAvailableDrivers()">send</button>
+    </div>
+    <div id="map"></div>
+    <div id="searching-driver-notification" class="notification">
+        <p>Recherche d'un conducteur...</p>
+    </div>
+    <div id="driver-found-notification" class="notification">
+        <p>Un conducteur arrive bientôt !</p>
+    </div>    
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmlvbjE5IiwiYSI6ImNsdnpsdHc4ZDA2cHoyanBoMjNtanFxZ2wifQ.qEmLEcxMuZicCHHWbQ3jjA';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [3.0588, 36.7538], // Coordonnées d'Alger
+            zoom: 12
+        });
+
+        function addMarker(userLocation, title = '') {
+            console.log("Adding marker at: ", userLocation);
+            new mapboxgl.Marker().setLngLat(userLocation).setPopup(new mapboxgl.Popup({ offset: 25 }).setText(title)).addTo(map);
+        }
+
+        function recenterMap(markers) {
+            if (markers.length > 0) {
+                const bounds = new mapboxgl.LngLatBounds();
+                markers.forEach(marker => bounds.extend(marker));
+                map.fitBounds(bounds, { padding: 20 });
+            }
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                console.log("Geolocation successful: ", position);
+                var userLocation = [position.coords.longitude, position.coords.latitude];
+                
+                var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + 
+                          userLocation[0] + ',' + userLocation[1] + '.json?access_token=' + 
+                          mapboxgl.accessToken;
+                
+                fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Geocoding response: ", data);
+                    if (data.features && data.features.length > 0) {
+                        var placeName = data.features[0].place_name;
+                        document.getElementById('origin').value = placeName;
+                        document.getElementById('latitude').value = position.coords.latitude;
+                        document.getElementById('longitude').value = position.coords.longitude;
+                        document.getElementById('city').innerText = 'Ville: ' + placeName;
+                        map.setCenter(userLocation);
+                        addMarker(userLocation, 'Your Location');
+                    } else {
+                        console.error('Aucun lieu trouvé dans le contexte.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération de la ville:', error);
+                });
+            }, function(error) {
+                console.error('Erreur de géolocalisation: ', error);
+                handleLocationError(true);
+            });
+        } else {
+            console.error('Navigateur ne supporte pas la géolocalisation.');
+            handleLocationError(false);
+        }
+
+        function handleLocationError(browserHasGeolocation) {
+            var errorMessage = browserHasGeolocation ?
+                                'Erreur: La géolocalisation a échoué.' :
+                                'Erreur: Votre navigateur ne prend pas en charge la géolocalisation.';
+            alert(errorMessage);
+        }
+
+        function displayAvailableDrivers(drivers) {
+            console.log("Available drivers: ", drivers);
+            var markers = [];
+            drivers.forEach(function(driver) {
+                var location = [driver.longitude, driver.latitude];
+                addMarker(location, driver.name);
+                markers.push(location);
+            });
+            recenterMap(markers);
+        }
+
+        function findAvailableDrivers() {
+            var latitude = parseFloat(document.getElementById('latitude').value);
+            var longitude = parseFloat(document.getElementById('longitude').value);
+            var destination = document.getElementById('destination').value;
+            var numOfPlaces = parseInt(document.getElementById('numOfPlaces').value);
+            
+            // Get the current date and time
+            var currentDate = new Date();
+            var currentDateTime = currentDate.toISOString();
+
+            console.log("Sending request to find drivers at: ", { latitude, longitude, destination, numOfPlaces, currentDateTime });
+        
+            showNotification('searching-driver-notification');
+        
+            fetch('http://127.0.0.1:5000/find_drivers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    latitude: latitude,
+                    longitude: longitude,
+                    destination: destination,
+                    num_places: numOfPlaces,
+                    request_time: currentDateTime // Sending the current date and time
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Drivers response: ", data);
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    displayAvailableDrivers(data.drivers);
+                    hideNotification('searching-driver-notification');
+                    simulateDriverAccepting();
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la récupération des chauffeurs disponibles:', error);
+                hideNotification('searching-driver-notification');
+            });
+        }
+
+        function showNotification(id) {
+            document.getElementById(id).classList.add('show');
+        }
+        
+        function hideNotification(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+        
+        
+        function simulateDriverAccepting() {
+            showNotification('driver-found-notification');
+            setTimeout(() => {
+                hideNotification('driver-found-notification');
+            }, 5000); // Hide after 5 seconds
+        }
+        
+        // Simulate a driver accepting the request after 10 seconds
+        setTimeout(simulateDriverAccepting, 10000);
+        
+    </script>
+    <p id="city"></p>
+</body>
+</html>

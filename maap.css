@@ -1,0 +1,43 @@
+body{
+    background-color: #3c5b66;
+}
+.container{
+    width:90%;
+    margin:0 auto
+}
+
+.fields{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    background-color: #3c5b66;
+    height: 80px;
+    gap: 10px;
+}
+.fields  span{
+    font-size: 16px;
+    color: #f6f6f6;
+}
+.fields input{
+    outline: none;
+    border: 2px    #ff4d59 solid;
+    padding: 5px;
+    border-radius: 20px;
+}
+.fields button{
+    outline: none;
+    border: none;
+    background-color: #ff4d59;
+    color: #3c5b66;
+    width: fit-content;
+    height: fit-content;
+    padding: 20px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+.fields button:hover{
+    opacity: 0.4;
+    transition: all 1s;
+}
+

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Taxi hiring app</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="maap.css">
+    <link rel="stylesheet" href="projett.css">
+    <style>
+        #map {
+            height: 1000px;
+            width: 100%;
+        }
+        .message {
+            display: none;
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            background-color: white;
+            padding: 20px;
+            border: 1px solid black;
+            z-index: 10;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .showmessage {
+            display: block;
+        }
+        .availability-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .availability-checkbox label {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        
+        .availability-checkbox input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #ccc;
+            outline: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .availability-checkbox input[type="checkbox"]:checked {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+        
+        .availability-checkbox input[type="checkbox"]:not(:checked) {
+            background-color:#F44336;
+            border-color: #F44336;
+        }
+    </style>
+</head>
+<body>
+    <button class="msg" id="msg"><i class="fa-solid fa-bell"></i></button>
+    <div class="message" id="message">
+        <h4>There is a client !!</h4>
+        <p id="client-coords"></p>
+        <button id="accept-button">Accept</button>
+        <button id="decline-button">Refuse</button>
+    </div>
+    <div class="availability-checkbox">
+        <input type="checkbox" id="availability-checkbox" checked>
+        <label for="availability-checkbox">Disponible</label>
+    </div>
+    <div id="map"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const availabilityCheckbox = document.getElementById('availability-checkbox');
+
+            availabilityCheckbox.addEventListener('change', function() {
+                const isChecked = this.checked ? 1 : 0; // 1 for available, 0 for not available
+
+                // Send AJAX request to Flask server to update availability
+                fetch('http://127.0.0.1:5000/update_driver_availability', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        driver_id: 'your_driver_id_here', // Replace with the actual driver ID
+                        availability: isChecked
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message); // Log success message
+                })
+                .catch(error => {
+                    console.error('Error updating driver availability:', error);
+                });
+            });
+        });
+
+        const msgBtn = document.querySelector('#msg');
+        const msg = document.querySelector('#message');
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                msgBtn.style.display = 'block';
+            }, 5000);
+        });
+
+        msgBtn.addEventListener('click', () => {
+            msg.classList.toggle('showmessage');
+            msgBtn.classList.toggle('btnmsg');
+        });
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmlvbjE5IiwiYSI6ImNsdnpsdHc4ZDA2cHoyanBoMjNtanFxZ2wifQ.qEmLEcxMuZicCHHWbQ3jjA';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [3.0588, 36.7538], // Coordonnées d'Alger
+            zoom: 12
+        });
+
+        function addMarker(userLocation) {
+            new mapboxgl.Marker().setLngLat(userLocation).addTo(map);
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var userLocation = [position.coords.longitude, position.coords.latitude];
+                
+                var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + 
+                          userLocation[0] + ',' + userLocation[1] + '.json?types=place&access_token=' + 
+                          mapboxgl.accessToken;
+                
+                fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    var cityContext = data.features[0].context.find(context => context.id.includes('place'));
+                    if (cityContext) {
+                        var city = cityContext.text;
+                        document.getElementById('city').innerText = 'Ville: ' + city;
+                        map.setCenter(userLocation);
+                        addMarker(userLocation);
+                    } else {
+                        console.error('Aucune ville trouvée dans le contexte.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la récupération de la ville:', error);
+                });
+
+            }, function() {
+                handleLocationError(true);
+            });
+        } else {
+            handleLocationError(false);
+        }
+
+        function handleLocationError(browserHasGeolocation) {
+            var errorMessage = browserHasGeolocation ?
+                                'Erreur: La géolocalisation a échoué.' :
+                                'Erreur: Votre navigateur ne prend pas en charge la géolocalisation.';
+            alert(errorMessage);
+        }
+
+        function displayAvailableDriversWithRedMarkers(drivers) {
+            console.log("Available drivers: ", drivers);
+            drivers.forEach(function(driver) {
+                var el = document.createElement('div');
+                el.className = 'marker';
+                el.style.backgroundColor = 'red';
+                el.style.width = '20px';
+                el.style.height = '20px';
+                el.style.borderRadius = '50%';
+                new mapboxgl.Marker(el)
+                    .setLngLat([driver.longitude, driver.latitude])
+                    .addTo(map);
+            });
+        }
+
+        function findAvailableDrivers() {
+            var latitude = parseFloat(document.getElementById('latitude').value);
+            var longitude = parseFloat(document.getElementById('longitude').value);
+            var destination = document.getElementById('destination').value;
+            var numOfPlaces = parseInt(document.getElementById('numOfPlaces').value);
+        
+            console.log("Sending request to find drivers at: ", { latitude, longitude, destination, numOfPlaces });
+        
+            showNotification('searching-driver-notification');
+        
+            fetch('http://127.0.0.1:5000/find_drivers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    latitude: latitude,
+                    longitude: longitude,
+                    destination: destination,
+                    num_places: numOfPlaces
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Drivers response: ", data);
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    displayAvailableDriversWithRedMarkers(data.drivers);
+                    handleDriverRequest(data.drivers[0]);
+                }
+            })
+            .catch(error => {
+                console.error('Error retrieving available drivers:', error);
+                hideNotification('searching-driver-notification');
+            });
+        }
+
+        function handleDriverRequest(driver) {
+            const driverInfo = `Driver: ${driver.name}, Latitude: ${driver.latitude}, Longitude: ${driver.longitude}`;
+            clientCoords.textContent = driverInfo;
+            msg.classList.add('showmessage');
+
+            acceptButton.addEventListener("click", () => {
+                alert("Accepted");
+                const successMessage = `Driver ${driver.name} has been assigned to your request.`;
+                alert(successMessage);
+            });
+
+            declineButton.addEventListener("click", () => {
+                alert("Refused");
+                fetch('http://127.0.0.1:5000/find_another_driver', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        latitude: latitude,
+                        longitude: longitude,
+                        destination: destination,
+                        num_places: numOfPlaces,
+                        driver_name: driver.name  // Pass the driver's name
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("New driver response: ", data);
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        handleDriverRequest(data.driver);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error finding another driver:', error);
+                });
+            });
+        }
+
+        function showNotification(id) {
+            document.getElementById(id).classList.add('show');
+        }
+        
+        function hideNotification(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+        
+    </script>
+    <p id="city"></p>
+</body>
+</html>
