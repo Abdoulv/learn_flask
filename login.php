@@ -31,6 +31,10 @@ if (isset($_POST['login'])) {
                 session_regenerate_id();
                 $_SESSION['name'] = $row['name'];
                 $_SESSION['username'] = $row['username'];
+
+                // Store the client ID in the session
+                $_SESSION['client_id'] = $row['id']; // Assuming 'id' is the column name for the client ID in tbl_user
+
                 header('Location: map.html');
                 exit;
             } else {

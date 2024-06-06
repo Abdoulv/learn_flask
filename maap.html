@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Taxi hiring app</title>
+    <title>Taxi Hiring App - Driver</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="maap.css">
-    <link rel="stylesheet" href="projett.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <style>
         #map {
             height: 1000px;
@@ -33,12 +31,10 @@
             align-items: center;
             margin-bottom: 20px;
         }
-        
         .availability-checkbox label {
             margin-left: 10px;
             font-weight: bold;
         }
-        
         .availability-checkbox input[type="checkbox"] {
             appearance: none;
             -webkit-appearance: none;
@@ -51,14 +47,12 @@
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        
         .availability-checkbox input[type="checkbox"]:checked {
             background-color: #4CAF50;
             border-color: #4CAF50;
         }
-        
         .availability-checkbox input[type="checkbox"]:not(:checked) {
-            background-color:#F44336;
+            background-color: #F44336;
             border-color: #F44336;
         }
     </style>
@@ -76,37 +70,61 @@
         <label for="availability-checkbox">Disponible</label>
     </div>
     <div id="map"></div>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const availabilityCheckbox = document.getElementById('availability-checkbox');
+            let driverId = ' data.idd';
 
             availabilityCheckbox.addEventListener('change', function() {
-                const isChecked = this.checked ? 1 : 0; // 1 for available, 0 for not available
+                const isChecked = this.checked ? 1 : 0;
 
-                // Send AJAX request to Flask server to update availability
                 fetch('http://127.0.0.1:5000/update_driver_availability', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        driver_id: 'your_driver_id_here', // Replace with the actual driver ID
+                        driver_id: driverId,
                         availability: isChecked
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    console.log(data.message); // Log success message
+                    console.log(data.message);
                 })
                 .catch(error => {
                     console.error('Error updating driver availability:', error);
                 });
             });
+
+            // Fetch driver ID
+            fetch('http://localhost/test_jeet/get_driver_id.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.idd) {
+                        driverId = data.idd;
+                        console.log('Driver ID:', data.idd);
+                    } else {
+                        console.error('Driver ID not found');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching driver ID:', error);
+                });
+
+            // WebSocket to receive real-time notifications
+            const socket = new WebSocket('ws://127.0.0.1:5000/notifications');
+            socket.addEventListener('message', function (event) {
+                const clientRequest = JSON.parse(event.data);
+                handleDriverRequest(clientRequest);
+            });
         });
 
         const msgBtn = document.querySelector('#msg');
         const msg = document.querySelector('#message');
+        const clientCoords = document.querySelector('#client-coords');
+        const acceptButton = document.querySelector('#accept-button');
+        const declineButton = document.querySelector('#decline-button');
         
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -123,157 +141,122 @@
         var map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: [3.0588, 36.7538], // Coordonnées d'Alger
+            center: [3.0588, 36.7538],
             zoom: 12
         });
 
-        function addMarker(userLocation) {
-            new mapboxgl.Marker().setLngLat(userLocation).addTo(map);
+        function addMarker(userLocation, title = '') {
+            new mapboxgl.Marker().setLngLat(userLocation).setPopup(new mapboxgl.Popup({ offset: 25 }).setText(title)).addTo(map);
         }
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                var userLocation = [position.coords.longitude, position.coords.latitude];
-                
-                var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + 
-                          userLocation[0] + ',' + userLocation[1] + '.json?types=place&access_token=' + 
-                          mapboxgl.accessToken;
-                
-                fetch(url)
+        function drawRoute(start, end) {
+            var url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
-                    console.log(data);
-                    var cityContext = data.features[0].context.find(context => context.id.includes('place'));
-                    if (cityContext) {
-                        var city = cityContext.text;
-                        document.getElementById('city').innerText = 'Ville: ' + city;
-                        map.setCenter(userLocation);
-                        addMarker(userLocation);
+                    var route = data.routes[0].geometry;
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(route);
                     } else {
-                        console.error('Aucune ville trouvée dans le contexte.');
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: {
+                                type: 'geojson',
+                                data: route
+                            },
+                            layout: {
+                                'line-join': 'round',
+                                'line-cap': 'round'
+                            },
+                            paint: {
+                                'line-color': '#ff0000',
+                                'line-width': 5
+                            }
+                        });
                     }
-                })
-                .catch(error => {
-                    console.error('Erreur lors de la récupération de la ville:', error);
                 });
-
-            }, function() {
-                handleLocationError(true);
-            });
-        } else {
-            handleLocationError(false);
         }
 
-        function handleLocationError(browserHasGeolocation) {
-            var errorMessage = browserHasGeolocation ?
-                                'Erreur: La géolocalisation a échoué.' :
-                                'Erreur: Votre navigateur ne prend pas en charge la géolocalisation.';
-            alert(errorMessage);
-        }
-
-        function displayAvailableDriversWithRedMarkers(drivers) {
-            console.log("Available drivers: ", drivers);
+        function displayAvailableDrivers(drivers) {
             drivers.forEach(function(driver) {
-                var el = document.createElement('div');
-                el.className = 'marker';
-                el.style.backgroundColor = 'red';
-                el.style.width = '20px';
-                el.style.height = '20px';
-                el.style.borderRadius = '50%';
-                new mapboxgl.Marker(el)
-                    .setLngLat([driver.longitude, driver.latitude])
-                    .addTo(map);
+                var location = [driver.longitude, driver.latitude];
+                addMarker(location, driver.name);
             });
         }
 
-        function findAvailableDrivers() {
-            var latitude = parseFloat(document.getElementById('latitude').value);
-            var longitude = parseFloat(document.getElementById('longitude').value);
-            var destination = document.getElementById('destination').value;
-            var numOfPlaces = parseInt(document.getElementById('numOfPlaces').value);
-        
-            console.log("Sending request to find drivers at: ", { latitude, longitude, destination, numOfPlaces });
-        
-            showNotification('searching-driver-notification');
-        
-            fetch('http://127.0.0.1:5000/find_drivers', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    latitude: latitude,
-                    longitude: longitude,
-                    destination: destination,
-                    num_places: numOfPlaces
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Drivers response: ", data);
-                if (data.error) {
-                    alert(data.error);
-                } else {
-                    displayAvailableDriversWithRedMarkers(data.drivers);
-                    handleDriverRequest(data.drivers[0]);
-                }
-            })
-            .catch(error => {
-                console.error('Error retrieving available drivers:', error);
-                hideNotification('searching-driver-notification');
-            });
-        }
-
-        function handleDriverRequest(driver) {
-            const driverInfo = `Driver: ${driver.name}, Latitude: ${driver.latitude}, Longitude: ${driver.longitude}`;
-            clientCoords.textContent = driverInfo;
+        function handleDriverRequest(client) {
+            clientCoords.textContent = `Client Location: ${client.latitude}, ${client.longitude}\nDestination: ${client.destination}\nSeats: ${client.num_places}`;
             msg.classList.add('showmessage');
 
+            const driverLocation = [3.0588, 36.7538];  // Replace with the driver's current location
+            const clientLocation = [client.longitude, client.latitude];
+            drawRoute(driverLocation, clientLocation);
+
             acceptButton.addEventListener("click", () => {
-                alert("Accepted");
-                const successMessage = `Driver ${driver.name} has been assigned to your request.`;
-                alert(successMessage);
+                alert("Request Accepted");
+                fetch('http://127.0.0.1:5000/driver_accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        driver_id: driverId,
+                        client_id: client.client_id
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                    msg.classList.remove('showmessage');
+                    drawRoute(driverLocation, clientLocation);
+                })
+                .catch(error => {
+                    console.error('Error accepting request:', error);
+                });
             });
 
             declineButton.addEventListener("click", () => {
-                alert("Refused");
+                alert("Request Refused");
                 fetch('http://127.0.0.1:5000/find_another_driver', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        latitude: latitude,
-                        longitude: longitude,
-                        destination: destination,
-                        num_places: numOfPlaces,
-                        driver_name: driver.name  // Pass the driver's name
+                        latitude: client.latitude,
+                        longitude: client.longitude,
+                        num_places: client.num_places,
+                        destination: client.destination
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    console.log("New driver response: ", data);
-                    if (data.error) {
-                        alert(data.error);
+                    if (data.drivers) {
+                        displayAvailableDrivers(data.drivers);
                     } else {
-                        handleDriverRequest(data.driver);
+                        console.log(data.error);
                     }
                 })
                 .catch(error => {
                     console.error('Error finding another driver:', error);
                 });
+                msg.classList.remove('showmessage');
             });
         }
 
-        function showNotification(id) {
-            document.getElementById(id).classList.add('show');
-        }
-        
-        function hideNotification(id) {
-            document.getElementById(id).classList.remove('show');
-        }
-        
+        fetch('http://127.0.0.1:5000/get_client_requests')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.log(data.error);
+                } else {
+                    handleDriverRequest(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching client requests:', error);
+            });
     </script>
-    <p id="city"></p>
 </body>
 </html>

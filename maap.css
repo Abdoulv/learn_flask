@@ -1,43 +1,78 @@
-body{
-    background-color: #3c5b66;
-}
-.container{
-    width:90%;
-    margin:0 auto
+body {
+    background-color: #f2f2f2;
+    font-family: Arial, sans-serif;
 }
 
-.fields{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px;
-    background-color: #3c5b66;
-    height: 80px;
-    gap: 10px;
-}
-.fields  span{
-    font-size: 16px;
-    color: #f6f6f6;
-}
-.fields input{
-    outline: none;
-    border: 2px    #ff4d59 solid;
-    padding: 5px;
-    border-radius: 20px;
-}
-.fields button{
-    outline: none;
+.msg {
+    background-color: #4CAF50;
+    color: white;
     border: none;
-    background-color: #ff4d59;
-    color: #3c5b66;
-    width: fit-content;
-    height: fit-content;
-    padding: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
     cursor: pointer;
-    border-radius: 50%;
-}
-.fields button:hover{
-    opacity: 0.4;
-    transition: all 1s;
+    border-radius: 4px;
 }
 
+.msg:hover {
+    background-color: #45a049;
+}
+
+.message {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    text-align: center;
+    max-width: 300px;
+    margin: 20px auto;
+}
+
+.message h4 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.message button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 5px;
+}
+
+.message button:hover {
+    background-color: #45a049;
+}
+
+.availability-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.availability-checkbox input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #4CAF50;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.availability-checkbox input[type="checkbox"]:checked {
+    background-color: #4CAF50;
+}
+
+.availability-checkbox label {
+    color: #333;
+    font-size: 16px;
+    margin-left: 10px;
+}

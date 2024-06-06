@@ -1,12 +1,13 @@
-body{
+body {
     background-color: #f4f7f8;
 }
-.container{
-    width:100%;
-    margin:0 auto
+
+.container {
+    width: 100%;
+    margin: 0 auto;
 }
 
-.fields{
+.fields {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -15,17 +16,20 @@ body{
     height: 80px;
     gap: 10px;
 }
-.fields  span{
+
+.fields span {
     font-size: 16px;
     color: #f6f6f6;
 }
-.fields input{
+
+.fields input {
     outline: none;
-    border: 2px    #f6f6f6 solid;
+    border: 2px #f6f6f6 solid;
     padding: 5px;
     border-radius: 20px;
 }
-.fields button{
+
+.fields button {
     outline: none;
     border: none;
     background-color: #ff4d59;
@@ -36,7 +40,8 @@ body{
     cursor: pointer;
     border-radius: 50%;
 }
-.fields button:hover{
+
+.fields button:hover {
     opacity: 0.4;
     transition: all 1s;
 }
@@ -44,16 +49,30 @@ body{
 .notification {
     display: none;
     position: fixed;
-    top: 10px;
-    right: 10px;
-    background-color: #4caf50;
-    color: white;
+    top: 20px;
+    right: 20px;
+    background-color: #ffffff;
+    color: #333333;
     padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     z-index: 1000;
+    max-width: 300px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    animation: slide-in 0.5s ease-out;
 }
 
 .notification.show {
     display: block;
+}
+
+@keyframes slide-in {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }

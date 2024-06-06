@@ -55,6 +55,22 @@ ALTER TABLE `tbl_user`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 COMMIT;
 
+
+------
+
+CREATE TABLE `client_request` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `client_id` INT ,
+  `latitude` DECIMAL(9,7) NOT NULL,
+  `longitude` DECIMAL(8,7) NOT NULL,
+  `destination` VARCHAR(255) NOT NULL,
+  `num_places` INT NOT NULL,
+  `status` VARCHAR(20) DEFAULT 'pending',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`client_id`) REFERENCES `tbl_user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 --
 -- Table structure for table `tbl_driver`
 --
