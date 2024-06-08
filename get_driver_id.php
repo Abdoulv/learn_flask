@@ -12,3 +12,4 @@ if (isset($_SESSION['idd'])) {
     echo json_encode(['idd' => 0]);
 }
 ?>
+

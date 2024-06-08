@@ -1,0 +1,7 @@
+Avec 4 dimensions (latitude, longitude, heure, jour de la semaine), 9 clusters peuvent être appropriés. Voici quelques scénarios qui justifieraient 9 clusters :
+
+3 zones géographiques (centre-ville, banlieue nord, banlieue sud)
+3 périodes de la journée (matin, après-midi, soir)
+Jours de semaine vs week-end
+
+Cela pourrait donner : 3 (zones) * 3 (périodes) = 9 clusters.

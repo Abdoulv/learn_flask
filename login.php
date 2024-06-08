@@ -35,6 +35,20 @@ if (isset($_POST['login'])) {
                 // Store the client ID in the session
                 $_SESSION['client_id'] = $row['id']; // Assuming 'id' is the column name for the client ID in tbl_user
 
+                // Update client status to 'pending'
+                $client_id = $row['id'];
+                $update_sql = "UPDATE `client_request` SET `status` = 'pending' WHERE `client_id` = ?";
+                $update_stmt = $conn->prepare($update_sql);
+                $update_stmt->bind_param("i", $client_id);
+                $update_stmt->execute();
+
+                if ($update_stmt->affected_rows === 0) {
+                    // If no rows were affected, it might mean the client does not have a pending request.
+                    // You can choose to insert a new row if needed.
+                    // For now, we just log the info and proceed.
+                    error_log("No pending request updated for client_id: $client_id");
+                }
+
                 header('Location: map.html');
                 exit;
             } else {

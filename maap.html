@@ -4,6 +4,7 @@
     <title>Taxi Hiring App - Driver</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <style>
@@ -62,6 +63,8 @@
     <div class="message" id="message">
         <h4>There is a client !!</h4>
         <p id="client-coords"></p>
+        <p id="client-destination"></p>
+        <p id="client-seats"></p>
         <button id="accept-button">Accept</button>
         <button id="decline-button">Refuse</button>
     </div>
@@ -71,192 +74,203 @@
     </div>
     <div id="map"></div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const availabilityCheckbox = document.getElementById('availability-checkbox');
-            let driverId = ' data.idd';
+document.addEventListener('DOMContentLoaded', function() {
+    const availabilityCheckbox = document.getElementById('availability-checkbox');
+    let driverId;
 
-            availabilityCheckbox.addEventListener('change', function() {
-                const isChecked = this.checked ? 1 : 0;
+    availabilityCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked ? 1 : 0;
+        console.log(isChecked);
+        console.log(driverId);
 
-                fetch('http://127.0.0.1:5000/update_driver_availability', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        driver_id: driverId,
-                        availability: isChecked
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data.message);
-                })
-                .catch(error => {
-                    console.error('Error updating driver availability:', error);
-                });
-            });
+        fetch('http://127.0.0.1:5000/update_driver_availability', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                driver_id: driverId,
+                availability: isChecked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.message);
+        })
+        .catch(error => {
+            console.error('Error updating driver availability:', error);
+        });
+    });
 
-            // Fetch driver ID
-            fetch('http://localhost/test_jeet/get_driver_id.php')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.idd) {
-                        driverId = data.idd;
-                        console.log('Driver ID:', data.idd);
-                    } else {
-                        console.error('Driver ID not found');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching driver ID:', error);
-                });
-
-            // WebSocket to receive real-time notifications
-            const socket = new WebSocket('ws://127.0.0.1:5000/notifications');
-            socket.addEventListener('message', function (event) {
-                const clientRequest = JSON.parse(event.data);
-                handleDriverRequest(clientRequest);
-            });
+    // Fetch driver ID
+    fetch('http://localhost/test_jeet/get_driver_id.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.idd) {
+                console.log(data.idd);
+                driverId = data.idd;
+                console.log('Driver ID:', data.idd);
+                checkForClientRequest(driverId);
+            } else {
+                console.error('Driver ID not found');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching driver ID:', error);
         });
 
-        const msgBtn = document.querySelector('#msg');
-        const msg = document.querySelector('#message');
-        const clientCoords = document.querySelector('#client-coords');
-        const acceptButton = document.querySelector('#accept-button');
-        const declineButton = document.querySelector('#decline-button');
-        
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                msgBtn.style.display = 'block';
-            }, 5000);
-        });
 
-        msgBtn.addEventListener('click', () => {
-            msg.classList.toggle('showmessage');
-            msgBtn.classList.toggle('btnmsg');
-        });
+    const msgBtn = document.querySelector('#msg');
+    const msg = document.querySelector('#message');
+    const clientCoords = document.querySelector('#client-coords');
+    const clientDestination = document.querySelector('#client-destination');
+    const clientSeats = document.querySelector('#client-seats');
+    const acceptButton = document.querySelector('#accept-button');
+    const declineButton = document.querySelector('#decline-button');
 
-        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmlvbjE5IiwiYSI6ImNsdnpsdHc4ZDA2cHoyanBoMjNtanFxZ2wifQ.qEmLEcxMuZicCHHWbQ3jjA';
-        var map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11',
-            center: [3.0588, 36.7538],
-            zoom: 12
-        });
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            msgBtn.style.display = 'block';
+        }, 5000);
+    });
 
-        function addMarker(userLocation, title = '') {
-            new mapboxgl.Marker().setLngLat(userLocation).setPopup(new mapboxgl.Popup({ offset: 25 }).setText(title)).addTo(map);
-        }
+    msgBtn.addEventListener('click', () => {
+        msg.classList.toggle('showmessage');
+        msgBtn.classList.toggle('btnmsg');
+    });
 
-        function drawRoute(start, end) {
-            var url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    var route = data.routes[0].geometry;
-                    if (map.getSource('route')) {
-                        map.getSource('route').setData(route);
-                    } else {
-                        map.addLayer({
-                            id: 'route',
-                            type: 'line',
-                            source: {
-                                type: 'geojson',
-                                data: route
-                            },
-                            layout: {
-                                'line-join': 'round',
-                                'line-cap': 'round'
-                            },
-                            paint: {
-                                'line-color': '#ff0000',
-                                'line-width': 5
-                            }
-                        });
-                    }
-                });
-        }
+    mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmlvbjE5IiwiYSI6ImNsdnpsdHc4ZDA2cHoyanBoMjNtanFxZ2wifQ.qEmLEcxMuZicCHHWbQ3jjA';
+    var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [4.5418, 35.7058],
+        zoom: 12
+    });
 
-        function displayAvailableDrivers(drivers) {
-            drivers.forEach(function(driver) {
-                var location = [driver.longitude, driver.latitude];
-                addMarker(location, driver.name);
-            });
-        }
+    function addMarker(userLocation, title = '') {
+        new mapboxgl.Marker().setLngLat(userLocation).setPopup(new mapboxgl.Popup({ offset: 25 }).setText(title)).addTo(map);
+    }
 
-        function handleDriverRequest(client) {
-            clientCoords.textContent = `Client Location: ${client.latitude}, ${client.longitude}\nDestination: ${client.destination}\nSeats: ${client.num_places}`;
-            msg.classList.add('showmessage');
-
-            const driverLocation = [3.0588, 36.7538];  // Replace with the driver's current location
-            const clientLocation = [client.longitude, client.latitude];
-            drawRoute(driverLocation, clientLocation);
-
-            acceptButton.addEventListener("click", () => {
-                alert("Request Accepted");
-                fetch('http://127.0.0.1:5000/driver_accept', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        driver_id: driverId,
-                        client_id: client.client_id
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data.message);
-                    msg.classList.remove('showmessage');
-                    drawRoute(driverLocation, clientLocation);
-                })
-                .catch(error => {
-                    console.error('Error accepting request:', error);
-                });
-            });
-
-            declineButton.addEventListener("click", () => {
-                alert("Request Refused");
-                fetch('http://127.0.0.1:5000/find_another_driver', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        latitude: client.latitude,
-                        longitude: client.longitude,
-                        num_places: client.num_places,
-                        destination: client.destination
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.drivers) {
-                        displayAvailableDrivers(data.drivers);
-                    } else {
-                        console.log(data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error finding another driver:', error);
-                });
-                msg.classList.remove('showmessage');
-            });
-        }
-
-        fetch('http://127.0.0.1:5000/get_client_requests')
+    function drawRoute(start, end) {
+        var url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+        fetch(url)
             .then(response => response.json())
             .then(data => {
-                if (data.error) {
-                    console.log(data.error);
+                var route = data.routes[0].geometry;
+                if (map.getSource('route')) {
+                    map.getSource('route').setData(route);
                 } else {
-                    handleDriverRequest(data);
+                    map.addLayer({
+                        id: 'route',
+                        type: 'line',
+                        source: {
+                            type: 'geojson',
+                            data: route
+                        },
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#ff0000',
+                            'line-width': 5
+                        }
+                    });
+                }
+            });
+    }
+
+    function displayAvailableDrivers(drivers) {
+        drivers.forEach(function(driver) {
+            var location = [driver.longitude, driver.latitude];
+            addMarker(location, driver.name);
+        });
+    }
+
+    function handleDriverRequest(client) {
+        clientCoords.textContent = `Client Location: ${client.latitude}, ${client.longitude}`;
+        clientDestination.textContent = `Destination: ${client.destination}`;
+        clientSeats.textContent = `Seats: ${client.num_places}`;
+        msg.classList.add('showmessage');
+    
+        // Fetch the driver's current location
+        fetch('http://127.0.0.1:5000/get_driver_location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ driver_id: driverId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const driverLocation = [data.longitude, data.latitude];
+            const clientLocation = [client.longitude, client.latitude]; 
+        })
+        .catch(error => {
+            console.error('Error fetching driver location:', error);
+            alert('Error fetching driver location: ' + error.message);
+        });
+    }
+
+    function checkForClientRequest(driverId) {
+        fetch('http://127.0.0.1:5000/get_client_requests')
+            .then(response => response.json())
+            .then(clientRequest => {
+                if (clientRequest ) {
+                    const requestData = {
+                        client_id: clientRequest.client_id,
+                        latitude: parseFloat(clientRequest.latitude),
+                        longitude: parseFloat(clientRequest.longitude),
+                        num_places: clientRequest.num_places,
+                        destination: clientRequest.destination
+                    };
+                    
+                    fetch('http://127.0.0.1:5000/find_drivers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.drivers)
+                        if (data.drivers && data.drivers.length > 0) {
+                            console.log('if in maap',data.drivers)
+                            const chosenDriver = data.drivers[0];
+                            if (chosenDriver.driver_id === driverId) {
+                                console.log('if choosen',data.drivers)
+                                handleDriverRequest(clientRequest);
+                            } else {
+                                showNoClientMessage();
+                                console.log('else in maap',data.drivers)
+                            }
+                        } else {
+                            showNoClientMessage();
+                            console.log('else 2 in maap',data.drivers)
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error finding drivers:', error);
+                        showNoClientMessage();
+                    });
+                } else {
+                    showNoClientMessage();
+                    console.log('shoz msg maap',data.drivers)
                 }
             })
             .catch(error => {
                 console.error('Error fetching client requests:', error);
+                showNoClientMessage();
             });
-    </script>
+    }
+
+    function showNoClientMessage() {
+        const msg = document.querySelector('#message');
+        msg.innerHTML = '<h4>There is no client !!</h4>';
+        msg.classList.add('showmessage');
+    }
+});
+</script>
 </body>
 </html>
