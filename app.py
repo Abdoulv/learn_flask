@@ -29,6 +29,7 @@ def get_db_connection():
 # Fetch data from the database
 conn = get_db_connection()
 cursor = conn.cursor()
+
 cursor.execute("SELECT time_date, latitude, longitude, driver_id FROM driver_location")
 data = cursor.fetchall()
 df = pd.DataFrame(data, columns=['time_date', 'latitude', 'longitude', 'driver_id'])
@@ -63,6 +64,32 @@ def find_best_cluster(client_lat, client_long, client_time):
         (cluster_centers[:, 3] - client_day_of_week)**2
     )
     return distances.argsort()
+
+
+@app.route('/get_client_info', methods=['POST'])
+def get_client_info():
+    try:
+        data = request.get_json()
+        client_id = data['client_id']
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Fetch client information from the database
+        cursor.execute("SELECT name, client_number FROM tbl_user WHERE id = %s", (client_id,))
+        client_info = cursor.fetchone()
+
+        if client_info:
+            client_name, client_number = client_info
+            return jsonify({'name': client_name, 'client_number': client_number})
+        else:
+            return jsonify({'error': 'Client not found'}), 404
+    except Exception as e:
+        print(f"Error in get_client_info: {str(e)}")
+        return jsonify({'error': f'Error fetching client info: {str(e)}'}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
         
 @app.route('/find_drivers', methods=['POST'])
@@ -218,6 +245,7 @@ def driver_accept():
             cursor.close()
         if conn:
             conn.close()
+
 
 # @app.route('/find_another_driver', methods=['POST'])
 # def find_another_driver():

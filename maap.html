@@ -72,6 +72,11 @@
         <input type="checkbox" id="availability-checkbox" checked>
         <label for="availability-checkbox">Disponible</label>
     </div>
+    <div class="client-info" id="client-info">
+        <h4>Hello</h4>
+        <p id="client-name"></p>
+        <p id="client-number"></p>
+    </div>
     <div id="map"></div>
     <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -90,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({
                 driver_id: driverId,
-                availability: isChecked
+                availability: !isChecked
             })
         })
         .then(response => response.json())
@@ -119,13 +124,15 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching driver ID:', error);
         });
 
-
     const msgBtn = document.querySelector('#msg');
     const msg = document.querySelector('#message');
     const clientCoords = document.querySelector('#client-coords');
     const clientDestination = document.querySelector('#client-destination');
     const clientSeats = document.querySelector('#client-seats');
     const acceptButton = document.querySelector('#accept-button');
+    const clientInfo = document.querySelector('#client-info');
+    const clientName = document.querySelector('#client-name');
+    const clientNumber = document.querySelector('#client-number');
     const declineButton = document.querySelector('#decline-button');
 
     window.addEventListener('load', () => {
@@ -187,12 +194,65 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function findAvailableDrivers() {
+        fetch('http://127.0.0.1:5000/get_client_requests')
+            .then(response => response.json())
+            .then(clientRequest => {
+                if (clientRequest) {
+                    console.log('ecriiiir',clientRequest)
+                    const requestData2 = {
+                        client_id: clientRequest.client_id,
+                        latitude: parseFloat(clientRequest.latitude),
+                        longitude: parseFloat(clientRequest.longitude),
+                        num_places: clientRequest.num_places,
+                        destination: clientRequest.destination
+                    };
+
+                    console.log("Sending request to find drivers at: ", { latitude, longitude, destination, numOfPlaces, client_id });
+                    console.log(clientId);
+                    showNotification('searching-driver-notification');
+                    const requestData = {
+                        client_id: clientId,
+                        latitude: latitude,
+                        longitude: longitude,
+                        num_places: numOfPlaces,
+                        destination: destination
+                    };
+                    console.log('helo driver ', clientId);
+                    fetch('http://127.0.0.1:5000/find_drivers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideNotification('searching-driver-notification');
+                        if (data.error) {
+                            console.error(data.error);
+                            alert(data.error);
+                        } else if (data.drivers && data.drivers.length > 0) {
+                            displayAvailableDrivers(data.drivers);
+                            console.log('driver choisit', data.drivers);
+                        } else {
+                            alert('No available drivers found');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors de la récupération des chauffeurs disponibles:', error);
+                        hideNotification('searching-driver-notification');
+                    });
+                }
+            });
+    }
+
     function handleDriverRequest(client) {
         clientCoords.textContent = `Client Location: ${client.latitude}, ${client.longitude}`;
         clientDestination.textContent = `Destination: ${client.destination}`;
         clientSeats.textContent = `Seats: ${client.num_places}`;
         msg.classList.add('showmessage');
-    
+
         // Fetch the driver's current location
         fetch('http://127.0.0.1:5000/get_driver_location', {
             method: 'POST',
@@ -204,7 +264,54 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             const driverLocation = [data.longitude, data.latitude];
-            const clientLocation = [client.longitude, client.latitude]; 
+            const clientLocation = [client.longitude, client.latitude];
+
+            acceptButton.onclick = () => {
+                msg.classList.remove('showmessage');
+                drawRoute(driverLocation, clientLocation); // Update route on accept
+
+                // Show client info
+                clientInfo.classList.add('show-client-info');
+
+                // Fetch client info from the API
+                fetch('http://127.0.0.1:5000/get_client_info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ client_id: client.client_id })
+                })
+                .then(response => response.json())
+                .then(clientInfo => {
+                    clientName.textContent = `Client Name: ${clientInfo.name}`;
+                    clientNumber.textContent = `Client Number: ${clientInfo.client_number}`;
+                })
+                .catch(error => {
+                    console.error('Error fetching client info:', error);
+                });
+            };
+
+            declineButton.onclick = () => {
+                fetch('http://127.0.0.1:5000/update_driver_availability', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        driver_id: driverId,
+                        availability: 0  // Make the driver unavailable after declining
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                    clientInfo.classList.remove('showmessage');
+                    findAvailableDrivers();
+                })
+                .catch(error => {
+                    console.error('Error updating driver availability:', error);
+                });
+            };
         })
         .catch(error => {
             console.error('Error fetching driver location:', error);
@@ -216,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('http://127.0.0.1:5000/get_client_requests')
             .then(response => response.json())
             .then(clientRequest => {
-                if (clientRequest ) {
+                if (clientRequest) {
                     const requestData = {
                         client_id: clientRequest.client_id,
                         latitude: parseFloat(clientRequest.latitude),
@@ -224,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         num_places: clientRequest.num_places,
                         destination: clientRequest.destination
                     };
-                    
+
                     fetch('http://127.0.0.1:5000/find_drivers', {
                         method: 'POST',
                         headers: {
@@ -234,20 +341,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .then(response => response.json())
                     .then(data => {
-                        console.log(data.drivers)
+                        console.log(data.drivers);
                         if (data.drivers && data.drivers.length > 0) {
-                            console.log('if in maap',data.drivers)
+                            console.log('if in maap', data.drivers);
                             const chosenDriver = data.drivers[0];
                             if (chosenDriver.driver_id === driverId) {
-                                console.log('if choosen',data.drivers)
+                                displayAvailableDrivers(data.drivers);
+                                console.log('if chosen', data.drivers);
                                 handleDriverRequest(clientRequest);
                             } else {
                                 showNoClientMessage();
-                                console.log('else in maap',data.drivers)
+                                console.log('else in maap', data.drivers);
                             }
                         } else {
                             showNoClientMessage();
-                            console.log('else 2 in maap',data.drivers)
+                            console.log('else 2 in maap', data.drivers);
                         }
                     })
                     .catch(error => {
@@ -256,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 } else {
                     showNoClientMessage();
-                    console.log('shoz msg maap',data.drivers)
+                    console.log('show msg maap', data.drivers);
                 }
             })
             .catch(error => {

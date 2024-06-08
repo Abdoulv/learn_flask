@@ -18,6 +18,8 @@
                     alert("New Driver Register Success");
                     window.location.href = "loginDriver.php";
                   </script>';
+                  
+                  header('Location: indexd.html');
         } else {
             echo '<script>
                     alert("Error: ' . mysqli_error($conn) . '");

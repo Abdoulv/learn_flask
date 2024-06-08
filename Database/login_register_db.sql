@@ -125,6 +125,20 @@ VALUES
     ('d4', 'Brown', 'bobb@secre', '555-111-2222', 'secre', 'GHI789'),
     ('d5', 'Lee', 'evelee@letmein', '555-444-3333', 'letmein', 'JKL012');
 
+-----
+INSERT INTO tbl_driver (firstname, lastname, username, phone_number, password, registration_number, available) 
+VALUES 
+('d4', 'd4', 'a4@aa', '0644444444', MD5('pass'), 'Reg4', '1'),
+('d5', 'd5', 'a5@aa', '0655555555', MD5('pass'), 'Reg5', '0'),
+('d6', 'd6', 'a6@aa', '0666666666', MD5('pass'), 'Reg6', '1'),
+('d7', 'd7', 'a7@aa', '0677777777', MD5('pass'), 'Reg7', '0'),
+('d8', 'd8', 'a8@aa', '0688888888', MD5('pass'), 'Reg8', '1'),
+('d9', 'd9', 'a9@aa', '0699999999', MD5('pass'), 'Reg9', '0'),
+('d10', 'd10', 'a10@aa', '0600000000', MD5('pass'), 'Reg10', '1'),
+('d11', 'd11', 'a11@aa', '0611111111', MD5('pass'), 'Reg11', '0'),
+('d12', 'd12', 'a12@aa', '0622222222', MD5('pass'), 'Reg12', '1'),
+('d13', 'd13', 'a13@aa', '0633333333', MD5('pass'), 'Reg13', '0');
+
 ------------
 
 ALTER TABLE `tbl_driver`
